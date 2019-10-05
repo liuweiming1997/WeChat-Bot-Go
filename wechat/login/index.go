@@ -2,6 +2,7 @@ package login
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -24,7 +25,6 @@ func (wxLogin *WxLogin) FetchUuid() string {
 		logger.Fatal(resp, errs)
 		return ""
 	}
-	logger.Info(resp.Request.URL)
 	return body[50:62]
 }
 
@@ -44,7 +44,6 @@ func (wxLogin *WxLogin) Login() {
 	wxLogin.TimeStampMs = time.Now().UnixNano() / 1000
 	// First get uuid
 	wxLogin.Uuid = wxLogin.FetchUuid()
-	logger.Info(wxLogin.Uuid)
 	// Second get the QR Code
 	if !wxLogin.FetchQRCode() {
 		logger.Fatal("Fetch QR code error")
@@ -59,7 +58,7 @@ func (wxLogin *WxLogin) Login() {
 				LoginIcon:   true,
 				Uuid:        wxLogin.Uuid,
 				Tip:         0,
-				R:           1716389794,
+				R:           time.Now().UnixNano() / 1000,
 				TimeStampMs: wxLogin.TimeStampMs,
 			}
 			resp, body, errs := gorequest.New().Get(WAITTINE_URL).Query(params).End()
@@ -69,7 +68,7 @@ func (wxLogin *WxLogin) Login() {
 			}
 			logger.Info(fmt.Sprintf("\nmsg: %s \nURL: %s \nUser Status: %s", msg, resp.Request.URL, body))
 			if strings.Contains(body, "redirect_uri") && strings.Contains(body, "200") {
-				wxLogin.redirectUri = body[38 : len(body)-2]
+				wxLogin.RedirectUri = body[38 : len(body)-2]
 				ticker.Stop()
 				userIsScanedQRCode <- true
 				break
@@ -79,8 +78,23 @@ func (wxLogin *WxLogin) Login() {
 	select {
 	case <-userIsScanedQRCode:
 		logger.Info("User Login Success")
-		logger.Info(wxLogin.redirectUri)
+		logger.Info(wxLogin.RedirectUri)
+		resp, _, errs := gorequest.
+			New().
+			Get(wxLogin.RedirectUri).
+			RedirectPolicy(
+				func(req gorequest.Request, via []gorequest.Request) error {
+					// NOTE should not redirect here.
+					return http.ErrUseLastResponse
+				}).
+			End()
+		if resp.StatusCode != 301 {
+			logger.Fatal(resp, errs)
+		}
+		fmt.Println(resp.Status)
+		fmt.Println(resp.Request.URL)
+		fmt.Println(resp.Header)
 	case <-time.After(time.Second * SCAN_QR_CODE_TIMEOUT):
-		logger.Error("Scan QR Code timeout")
+		logger.Fatal("Scan QR Code timeout")
 	}
 }

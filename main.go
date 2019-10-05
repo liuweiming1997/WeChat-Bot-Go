@@ -9,5 +9,5 @@ func main() {
 	wxService := &wechat.WxService{
 		LoginService: &login.WxLogin{},
 	}
-	wxService.LoginService.Login()
+	wxService.ServerForever()
 }

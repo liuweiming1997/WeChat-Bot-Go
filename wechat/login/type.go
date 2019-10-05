@@ -34,7 +34,7 @@ const (
 type WxLogin struct {
 	Uuid        string
 	TimeStampMs int64
-	redirectUri string
+	RedirectUri string
 }
 
 type Uuid struct {
@@ -49,6 +49,6 @@ type Waitting struct {
 	LoginIcon   bool   `json:"loginicon"`
 	Uuid        string `json:"uuid"`
 	Tip         int    `json:"tip"`
-	R           int    `json:"r"`
+	R           int64  `json:"r"`
 	TimeStampMs int64  `json:"_"`
 }
